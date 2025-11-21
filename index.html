@@ -1,487 +1,216 @@
-x<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>Verificación de Código de Descuento</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    * {
-      box-sizing: border-box;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+<script>
+  // 👉 AQUI VA TU URL REAL DEL WEB APP DE GOOGLE
+  const LEAD_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxfG5U_PLChNVvWSctLHvH5wW7LcxbhThF32xUMpbOXggvMK9Eht1pLviyglW6XYyzs/exec";
+
+  // Fecha límite de la promoción
+  const PROMO_END_DATE = new Date("2025-12-30T23:59:59-03:00");
+
+  // Mapeo de códigos a porcentaje de descuento
+  const CODIGOS_DESCUENTO = {
+    // 3%
+    "SKM-8Q2L9D": 3,
+    "SKM-4ZP7KM": 3,
+    "SKM-1V8QW3": 3,
+    "SKM-9KD4LX": 3,
+    "SKM-3MW7QJ": 3,
+    "SKM-7PL2DX": 3,
+    "SKM-2QN9FJ": 3,
+    "SKM-6XQ3MD": 3,
+    "SKM-4BV9QP": 3,
+    "SKM-9JL3TX": 3,
+    "SKM-2KV7LM": 3,
+    "SKM-5QX8RD": 3,
+
+    // 4%
+    "SKM-8PM3ZQ": 4,
+    "SKM-3QL7DX": 4,
+    "SKM-7VN4KP": 4,
+    "SKM-6BR2QM": 4,
+    "SKM-1TZ9LQ": 4,
+    "SKM-9QF3WM": 4,
+    "SKM-2MP8FX": 4,
+    "SKM-4QJ6ZN": 4,
+    "SKM-8LD3KQ": 4,
+    "SKM-5NW9QJ": 4,
+    "SKM-7QF2LX": 4,
+    "SKM-9TP4WD": 4,
+
+    // 5%
+    "SKM-3BF8KZ": 5,
+    "SKM-6QZ1RM": 5,
+    "SKM-2JP9DW": 5,
+    "SKM-8XK4LM": 5,
+    "SKM-1QM7DZ": 5,
+    "SKM-7KL3QP": 5,
+    "SKM-9MF2LD": 5,
+    "SKM-4TP8WX": 5,
+    "SKM-2BV9LQ": 5,
+    "SKM-5QW1RM": 5,
+    "SKM-8DJ7KM": 5,
+    "SKM-3XL4DP": 5,
+
+    // 6%
+    "SKM-7QZ9MF": 6,
+    "SKM-1LP8ZW": 6,
+    "SKM-6RM3TX": 6,
+    "SKM-2QN7KD": 6,
+    "SKM-9WX4MP": 6,
+    "SKM-4ZL2FQ": 6,
+    "SKM-8QJ9TR": 6,
+    "SKM-6DP1MX": 6,
+    "SKM-3BL8QW": 6,
+    "SKM-7FX4LZ": 6,
+    "SKM-1QZ9KP": 6,
+    "SKM-5LM3DF": 6,
+    "SKM-9QW7ZT": 6,
+    "SKM-2XP4JM": 6,
+
+    // 10%
+    "SKM-10XQZP": 10,
+    "SKM-10LMRW": 10
+  };
+
+  const formCodigo = document.getElementById("form-codigo");
+  const inputCodigo = document.getElementById("codigo");
+  const statusBox = document.getElementById("status");
+
+  const leadSection = document.getElementById("lead-form");
+  const leadForm = document.getElementById("form-lead");
+  const leadStatus = document.getElementById("lead-status");
+  const inputNombre = document.getElementById("nombre");
+  const inputTelefono = document.getElementById("telefono");
+
+  let currentCode = null;
+  let currentDiscount = null;
+
+  function setStatus(message, type) {
+    statusBox.textContent = message;
+    statusBox.className = "status " + type; // ok | error | info
+  }
+
+  function setLeadStatus(message, type) {
+    leadStatus.textContent = message;
+    leadStatus.className = "";
+    leadStatus.style.display = "block";
+    if (type === "ok") {
+      leadStatus.classList.add("ok");
+    } else if (type === "error") {
+      leadStatus.classList.add("error");
+    }
+  }
+
+  // --------------------------------------------
+  // PASO 1: VERIFICAR EL CÓDIGO DE DESCUENTO
+  // --------------------------------------------
+  formCodigo.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    let code = (inputCodigo.value || "").trim().toUpperCase();
+
+    if (!code) {
+      setStatus("Por favor, ingresa un código.", "info");
+      leadSection.style.display = "none";
+      return;
     }
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #f4f4f8, #e2e8f0);
+    const formatRegex = /^SKM-[A-Z0-9]+$/;
+    if (!formatRegex.test(code)) {
+      setStatus("Formato inválido. Usa el formato SKM-XXXXXX.", "error");
+      leadSection.style.display = "none";
+      return;
     }
 
-    .card {
-      background: #ffffff;
-      padding: 2.5rem 2rem;
-      max-width: 420px;
-      width: 100%;
-      border-radius: 1.5rem;
-      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+    const now = new Date();
+    if (now > PROMO_END_DATE) {
+      setStatus("La promoción ha finalizado.", "error");
+      leadSection.style.display = "none";
+      return;
     }
 
-    h1 {
-      margin: 0 0 0.5rem 0;
-      font-size: 1.6rem;
-      text-align: center;
-      color: #111827;
+    const descuento = CODIGOS_DESCUENTO[code];
+
+    if (!descuento) {
+      setStatus("Código no válido o no registrado.", "error");
+      leadSection.style.display = "none";
+      return;
     }
 
-    p.subtitle {
-      margin: 0 0 1.8rem 0;
-      font-size: 0.95rem;
-      text-align: center;
-      color: #6b7280;
+    currentCode = code;
+    currentDiscount = descuento;
+
+    if (descuento === 10) {
+      setStatus(
+        "🎉 ¡Código válido! Tenés un DESCUENTO ESPECIAL del " +
+          descuento +
+          "%. Ahora completá tus datos.",
+        "ok"
+      );
+    } else {
+      setStatus(
+        "✅ Código válido. Tenés un " +
+          descuento +
+          "% de descuento. Completá tus datos.",
+        "ok"
+      );
     }
 
-    label {
-      display: block;
-      font-size: 0.9rem;
-      margin-bottom: 0.35rem;
-      color: #374151;
-      font-weight: 500;
+    leadSection.style.display = "block";
+    leadStatus.style.display = "none";
+  });
+
+  // --------------------------------------------
+  // PASO 2: ENVIAR NOMBRE + CELULAR + CÓDIGO
+  // --------------------------------------------
+  leadForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const nombre = (inputNombre.value || "").trim();
+    const telefono = (inputTelefono.value || "").trim();
+
+    if (!currentCode || currentDiscount == null) {
+      setLeadStatus("Primero verificá tu código.", "error");
+      return;
     }
 
-    .input-row {
-      display: flex;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
+    if (!nombre) {
+      setLeadStatus("Por favor, ingresá tu nombre.", "error");
+      return;
     }
 
-    input[type="text"],
-    input[type="tel"] {
-      width: 100%;
-      padding: 0.8rem 0.9rem;
-      border-radius: 0.75rem;
-      border: 1px solid #d1d5db;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+    if (!telefono) {
+      setLeadStatus("Por favor, ingresá tu celular.", "error");
+      return;
     }
 
-    input[type="text"]:focus,
-    input[type="tel"]:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    if (!LEAD_ENDPOINT_URL) {
+      setLeadStatus("Error: Endpoint no configurado.", "error");
+      return;
     }
 
-    button {
-      padding: 0.8rem 1.1rem;
-      border-radius: 0.75rem;
-      border: none;
-      cursor: pointer;
-      background: #6366f1;
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 0.95rem;
-      white-space: nowrap;
-      transition: background 0.15s, transform 0.1s;
-    }
+    const payload = new URLSearchParams();
+    payload.append("nombre", nombre);
+    payload.append("telefono", telefono);
+    payload.append("codigo", currentCode);
+    payload.append("descuento", String(currentDiscount));
+    payload.append("timestamp", new Date().toISOString());
 
-    button:hover {
-      background: #4f46e5;
-      transform: translateY(-1px);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    .status {
-      margin-top: 0.8rem;
-      font-size: 0.9rem;
-      padding: 0.75rem 0.9rem;
-      border-radius: 0.75rem;
-      display: none;
-    }
-
-    .status.ok {
-      display: block;
-      background: #ecfdf3;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-    }
-
-    .status.error {
-      display: block;
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-    }
-
-    .status.info {
-      display: block;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-    }
-
-    .meta {
-      margin-top: 1.5rem;
-      font-size: 0.8rem;
-      color: #9ca3af;
-      text-align: center;
-    }
-
-    .small {
-      font-size: 0.75rem;
-      color: #9ca3af;
-      margin-top: 0.5rem;
-      text-align: center;
-    }
-
-    #lead-form {
-      margin-top: 1.5rem;
-      padding-top: 1.3rem;
-      border-top: 1px dashed #e5e7eb;
-      display: none; /* se muestra solo después del código válido */
-    }
-
-    #lead-form h2 {
-      margin: 0 0 0.8rem 0;
-      font-size: 1rem;
-      color: #111827;
-    }
-
-    #lead-form p {
-      margin: 0 0 1rem 0;
-      font-size: 0.85rem;
-      color: #6b7280;
-    }
-
-    #lead-status {
-      margin-top: 0.7rem;
-      font-size: 0.85rem;
-      padding: 0.6rem 0.8rem;
-      border-radius: 0.75rem;
-      display: none;
-    }
-
-    #lead-status.ok {
-      display: block;
-      background: #ecfdf3;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-    }
-
-    #lead-status.error {
-      display: block;
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-    }
-  </style>
-</head>
-<body>
-  <main class="card">
-    <h1>Verificá tu código de descuento</h1>
-    <p class="subtitle">
-      Ingresá tu código del voucher (formato <strong>SKM-XXXXXX</strong>) y comprobá tu beneficio.
-    </p>
-
-    <!-- Paso 1: Verificación del código -->
-    <form id="form-codigo">
-      <label for="codigo">Código de descuento</label>
-      <div class="input-row">
-        <input
-          type="text"
-          id="codigo"
-          name="codigo"
-          placeholder="Ej: SKM-8Q2L9D"
-          autocomplete="off"
-        />
-        <button type="submit">Verificar</button>
-      </div>
-    </form>
-
-    <div id="status" class="status"></div>
-
-    <!-- Paso 2: Captura de datos del cliente (se muestra sólo si el código es válido) -->
-    <section id="lead-form">
-      <h2>Dejanos tus datos</h2>
-      <p>
-        Para hacer válido tu beneficio y recibir novedades especiales, completá tu nombre y celular.
-      </p>
-      <form id="form-lead">
-        <label for="nombre">Nombre y apellido</label>
-        <input
-          type="text"
-          id="nombre"
-          name="nombre"
-          placeholder="Ej: Juan Pérez"
-          autocomplete="name"
-        />
-
-        <label for="telefono" style="margin-top:0.8rem;">Celular (WhatsApp)</label>
-        <input
-          type="tel"
-          id="telefono"
-          name="telefono"
-          placeholder="Ej: +598 91 234 567"
-          autocomplete="tel"
-        />
-
-        <button type="submit" style="margin-top:1rem; width:100%;">Guardar mis datos</button>
-      </form>
-      <div id="lead-status"></div>
-    </section>
-
-    <div class="meta">
-      Promoción válida hasta el <strong>05/12/2025</strong> inclusive.
-    </div>
-    <div class="small">
-      Al enviar tus datos aceptas ser contactado para promociones y novedades.
-    </div>
-  </main>
-
-  <script>
-    // 👉 URL de tu backend para guardar nombre, celular y código
-    // Por ejemplo, un Google Apps Script desplegado como Web App o un endpoint en Firebase/tu servidor.
-    const LEAD_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxfG5U_PLChNVvWSctLHvH5wW7LcxbhThF32xUMpbOXggvMK9Eht1pLviyglW6XYyzs/exec"; // <-- REEMPLAZA ESTO
-
-    // Fecha límite de la promoción
-    const PROMO_END_DATE = new Date("2025-12-05T23:59:59-03:00");
-
-    // Mapeo de códigos a porcentaje de descuento
-    const CODIGOS_DESCUENTO = {
-      // 3%
-      "SKM-8Q2L9D": 3,
-      "SKM-4ZP7KM": 3,
-      "SKM-1V8QW3": 3,
-      "SKM-9KD4LX": 3,
-      "SKM-3MW7QJ": 3,
-      "SKM-7PL2DX": 3,
-      "SKM-2QN9FJ": 3,
-      "SKM-6XQ3MD": 3,
-      "SKM-4BV9QP": 3,
-      "SKM-9JL3TX": 3,
-      "SKM-2KV7LM": 3,
-      "SKM-5QX8RD": 3,
-
-      // 4%
-      "SKM-8PM3ZQ": 4,
-      "SKM-3QL7DX": 4,
-      "SKM-7VN4KP": 4,
-      "SKM-6BR2QM": 4,
-      "SKM-1TZ9LQ": 4,
-      "SKM-9QF3WM": 4,
-      "SKM-2MP8FX": 4,
-      "SKM-4QJ6ZN": 4,
-      "SKM-8LD3KQ": 4,
-      "SKM-5NW9QJ": 4,
-      "SKM-7QF2LX": 4,
-      "SKM-9TP4WD": 4,
-
-      // 5%
-      "SKM-3BF8KZ": 5,
-      "SKM-6QZ1RM": 5,
-      "SKM-2JP9DW": 5,
-      "SKM-8XK4LM": 5,
-      "SKM-1QM7DZ": 5,
-      "SKM-7KL3QP": 5,
-      "SKM-9MF2LD": 5,
-      "SKM-4TP8WX": 5,
-      "SKM-2BV9LQ": 5,
-      "SKM-5QW1RM": 5,
-      "SKM-8DJ7KM": 5,
-      "SKM-3XL4DP": 5,
-
-      // 6%
-      "SKM-7QZ9MF": 6,
-      "SKM-1LP8ZW": 6,
-      "SKM-6RM3TX": 6,
-      "SKM-2QN7KD": 6,
-      "SKM-9WX4MP": 6,
-      "SKM-4ZL2FQ": 6,
-      "SKM-8QJ9TR": 6,
-      "SKM-6DP1MX": 6,
-      "SKM-3BL8QW": 6,
-      "SKM-7FX4LZ": 6,
-      "SKM-1QZ9KP": 6,
-      "SKM-5LM3DF": 6,
-      "SKM-9QW7ZT": 6,
-      "SKM-2XP4JM": 6,
-
-      // Especiales 10%
-      "SKM-10XQZP": 10,
-      "SKM-10LMRW": 10
-    };
-
-    const formCodigo = document.getElementById("form-codigo");
-    const inputCodigo = document.getElementById("codigo");
-    const statusBox = document.getElementById("status");
-
-    const leadSection = document.getElementById("lead-form");
-    const leadForm = document.getElementById("form-lead");
-    const leadStatus = document.getElementById("lead-status");
-    const inputNombre = document.getElementById("nombre");
-    const inputTelefono = document.getElementById("telefono");
-
-    let currentCode = null;
-    let currentDiscount = null;
-
-    function setStatus(message, type) {
-      statusBox.textContent = message;
-      statusBox.className = "status " + type; // ok | error | info
-    }
-
-    function setLeadStatus(message, type) {
-      leadStatus.textContent = message;
-      leadStatus.className = type ? " " + " " : "";
-      leadStatus.className = " " + " "; // reset
-      leadStatus.className = " " + " "; // just safety
-      leadStatus.textContent = message;
-      leadStatus.className = " ";
-      leadStatus.className = " " + " ";
-      // mejor simple:
-      leadStatus.className = " ";
-      leadStatus.className = " " + " ";
-    }
-
-    // Corrijo el helper de arriba, estaba overkill:
-    function setLeadStatus(message, typeClass) {
-      leadStatus.textContent = message;
-      leadStatus.className = "";
-      leadStatus.style.display = "block";
-      if (typeClass === "ok") {
-        leadStatus.classList.add("ok");
-      } else if (typeClass === "error") {
-        leadStatus.classList.add("error");
-      }
-    }
-
-    formCodigo.addEventListener("submit", function (event) {
-      event.preventDefault();
-
-      let code = (inputCodigo.value || "").trim().toUpperCase();
-
-      if (!code) {
-        setStatus("Por favor, ingresa un código.", "info");
-        leadSection.style.display = "none";
-        return;
-      }
-
-      const formatRegex = /^SKM-[A-Z0-9]+$/;
-      if (!formatRegex.test(code)) {
-        setStatus("Formato de código inválido. Usa el formato SKM-XXXXXX.", "error");
-        leadSection.style.display = "none";
-        return;
-      }
-
-      const now = new Date();
-      if (now > PROMO_END_DATE) {
-        setStatus("La promoción ha finalizado. Fecha límite alcanzada.", "error");
-        leadSection.style.display = "none";
-        return;
-      }
-
-      const descuento = CODIGOS_DESCUENTO[code];
-
-      if (!descuento) {
-        setStatus("Código no válido o no registrado. Verifica los datos ingresados.", "error");
-        leadSection.style.display = "none";
-        return;
-      }
-
-      currentCode = code;
-      currentDiscount = descuento;
-
-      if (descuento === 10) {
-        setStatus(
-          "🎉 ¡Código válido! Tenés un DESCUENTO ESPECIAL del " +
-            descuento +
-            "%. Ahora completa tus datos para activar el beneficio.",
-          "ok"
-        );
-      } else {
-        setStatus(
-          "✅ Código válido. Tenés un " +
-            descuento +
-            "% de descuento. Ahora completa tus datos para activar el beneficio.",
-          "ok"
-        );
-      }
-
-      // Mostrar el formulario de datos
-      leadSection.style.display = "block";
-      leadStatus.style.display = "none";
-    });
-
-    leadForm.addEventListener("submit", function (event) {
-      event.preventDefault();
-
-      const nombre = (inputNombre.value || "").trim();
-      const telefono = (inputTelefono.value || "").trim();
-
-      if (!currentCode || currentDiscount == null) {
-        setLeadStatus(
-          "Primero verificá tu código antes de enviar tus datos.",
-          "error"
-        );
-        return;
-      }
-
-      if (!nombre) {
-        setLeadStatus("Por favor, ingresá tu nombre.", "error");
-        return;
-      }
-
-      if (!telefono) {
-        setLeadStatus("Por favor, ingresá tu celular.", "error");
-        return;
-      }
-
-      if (!LEAD_ENDPOINT_URL || LEAD_ENDPOINT_URL.includes("TU-ENDPOINT-AQUI")) {
-        // Modo demo: no hay backend configurado
-        setLeadStatus(
-          "Datos listos (modo demo): nombre y celular capturados. Configura el endpoint para guardarlos.",
-          "ok"
-        );
-        return;
-      }
-
-      // Enviar datos al backend (POST x-www-form-urlencoded para ser compatible con Apps Script)
-      const payload = new URLSearchParams();
-      payload.append("nombre", nombre);
-      payload.append("telefono", telefono);
-      payload.append("codigo", currentCode);
-      payload.append("descuento", String(currentDiscount));
-      payload.append("timestamp", new Date().toISOString());
-
-      fetch(LEAD_ENDPOINT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-        },
-        body: payload.toString()
+    fetch(LEAD_ENDPOINT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body: payload.toString()
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Error del servidor");
+        return res.text();
       })
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error("Error de red o servidor");
-          }
-          return res.text();
-        })
-        .then(() => {
-          setLeadStatus("✅ ¡Gracias! Tus datos fueron guardados correctamente.", "ok");
-          // Opcional: limpiar campos
-          // leadForm.reset();
-        })
-        .catch((err) => {
-          console.error(err);
-          setLeadStatus(
-            "Hubo un problema al guardar tus datos. Intentalo nuevamente más tarde.",
-            "error"
-          );
-        });
-    });
-  </script>
-</body>
-</html>
+      .then(() => {
+        setLeadStatus("✅ ¡Gracias! Tus datos fueron guardados.", "ok");
+      })
+      .catch((err) => {
+        console.error(err);
+        setLeadStatus("Error al guardar los datos.", "error");
+      });
+  });
+</script>
